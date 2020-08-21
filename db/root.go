@@ -2,43 +2,60 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 var sqlDb *sql.DB
+type RowID int64
 
-func ensureDatabaseExists(dbPath string) string {
+func ParseRowID(rowID string) (RowID, error) {
+	rowId, err := strconv.ParseInt(rowID, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse row id: %v", err)
+	}
+
+	return RowID(rowId), nil
+}
+
+func ensureDatabaseExists(dbPath string) (string, error) {
 	fullPath, err := filepath.Abs(dbPath)
 	if err != nil {
-		log.Fatalf("Failed to find abs path for %s: %v", dbPath, err)
+		return "", fmt.Errorf("failed to find abs path for %s: %v", dbPath, err)
 	}
 
 	// todo: this seem unnecessarily complex. really??
 	info, err := os.Stat(fullPath)
 	if err != nil && !os.IsNotExist(err) {
-		log.Fatalf("failed to find info on the db file: %v", err)
+		return "", fmt.Errorf("failed to find info on the db file: %v", err)
 	} else if info != nil && info.IsDir() {
-		log.Fatalf("Database path '%s' is a directory", fullPath)
+		return "", fmt.Errorf("database path '%s' is a directory", fullPath)
 	}
 
 	file, err := os.Create(fullPath)
 	if err != nil {
-		log.Fatalf("Failed to create '%s': %v", fullPath, err)
+		return "", fmt.Errorf("failed to create '%s': %v", fullPath, err)
 	}
 
 	defer file.Close()
 
-	return fullPath
+	return fullPath, nil
+}
+
+var tableSchemas = map[string]string{
+	"users": usersTable,
+	"vehicles": vehiclesTable,
 }
 
 func OpenDatabase(dbPath string) {
 	var err error
 
-	dbPath = ensureDatabaseExists(dbPath)
+	dbPath, err = ensureDatabaseExists(dbPath)
 	log.Printf("Database path: %s", dbPath)
 
 	sqlDb, err = sql.Open("sqlite3", dbPath)
@@ -51,10 +68,12 @@ func OpenDatabase(dbPath string) {
 		log.Fatalf("Failed to get table list: %v", err)
 	}
 
-	if _, ok := tables["users"]; !ok {
-		err = createTable(usersTable)
-		if err != nil {
-			log.Fatalf("Failed to create games table: %v", err)
+	for tableName, tableSchema := range tableSchemas {
+		if _, ok := tables[tableName]; !ok {
+			err = createTable(tableSchema)
+			if err != nil {
+				log.Fatalf("Failed to create %s table: %v", tableName, err)
+			}
 		}
 	}
 }
@@ -101,6 +120,7 @@ func getTableList() (map[string]bool, error) {
 }
 
 func CloseDatabase() error {
+	fmt.Println("closing database")
 	err := sqlDb.Close()
 	if err != nil {
 		return err

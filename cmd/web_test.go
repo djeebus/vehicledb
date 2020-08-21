@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"os"
 	"testing"
@@ -20,26 +21,39 @@ var server *httptest.Server
 var client *http.Client
 
 func TestMain(m *testing.M) {
+	// setup database
+	db.OpenDatabase("testing.sqlite")
+	defer func() { logError(db.CloseDatabase()) }()
+
+	// setup schema
 	schema, err := graph.GenerateSchema()
 	if err != nil {
 		log.Fatal("Failed to se up graph", err)
 	}
 
 	// setup global server
-	mux := api.NewRouter(schema)
+	mux := api.NewHandler(schema)
 	server = httptest.NewServer(mux)
 	defer server.Close()
 
 	// set up global client
-	client = &http.Client{}
+	jar, err := cookiejar.New(&cookiejar.Options{})
+	if err != nil {
+		log.Fatal("Failed to set up cookie jar", err)
+	}
+	client = &http.Client{Jar: jar}
 
-	db.OpenDatabase("testing.sqlite")
-	defer db.CloseDatabase()
-
-	// call flag.Parse() here if TestMain uses flags
+	// run the test
 	result := m.Run()
 
+	// quit
 	os.Exit(result)
+}
+
+func logError(err error) {
+	if err != nil {
+		log.Println("Error closing db: ", err)
+	}
 }
 
 func TestUserRoundTrip(t *testing.T) {
@@ -80,6 +94,14 @@ func TestUserRoundTrip(t *testing.T) {
 }
 
 func TestVehicleRoundTrip(t *testing.T) {
+	// create user
+	createUserRequest := api.CreateUserRequest{
+		EmailAddress: "joe@djeebus.net",
+		Password:     "Password1",
+	}
+	var createUserResponse db.User
+	makeApiRequest(t, "POST", "/v1/users/", &createUserRequest, &createUserResponse)
+
 	// create vehicle
 	createVehicleRequest := api.CreateVehicleRequest{
 		Year:  2017,
@@ -101,7 +123,6 @@ func TestVehicleRoundTrip(t *testing.T) {
 	// get vehicle
 	var getVehicleResponse db.Vehicle
 	makeApiRequest(t, "GET", fmt.Sprintf("/v1/vehicles/%d", createVehicleResponse.VehicleID), nil, &getVehicleResponse)
-	makeApiRequest(t, "POST", "/v1/vehicles/", &createVehicleRequest, &createVehicleResponse)
 	if createVehicleResponse.VehicleID != getVehicleResponse.VehicleID {
 		t.Fatalf("Failed to set year: %d != %d", createVehicleRequest.Year, getVehicleResponse.Year)
 	}
@@ -115,7 +136,23 @@ func TestVehicleRoundTrip(t *testing.T) {
 		t.Fatalf("Failed to set model: %s != %s", createVehicleRequest.Model, getVehicleResponse.Model)
 	}
 
-	// list vehicles
+	// update vehicle
+	updateVehicleRequest := api.UpdateVehicleRequest{
+		Year: &db.NullYear{Year: 2011, Valid: true},
+		Make: &db.NullString{String: "BMW", Valid: true},
+		Model: &db.NullString{String: "550i", Valid: true},
+	}
+	var updateVehicleResponse db.Vehicle
+	makeApiRequest(t, "PATCH", fmt.Sprintf("/v1/vehicles/%d", getVehicleResponse.VehicleID), &updateVehicleRequest, &updateVehicleResponse)
+	if updateVehicleResponse.Year != updateVehicleRequest.Year.Year {
+		t.Fatalf("Failed to set year: %d != %d", updateVehicleResponse.Year, updateVehicleRequest.Year.Year)
+	}
+	if updateVehicleResponse.Make != updateVehicleRequest.Make.String {
+		t.Fatalf("Failed to set make: %s != %s", updateVehicleResponse.Make, updateVehicleRequest.Make.String)
+	}
+	if updateVehicleResponse.Model != updateVehicleRequest.Model.String {
+		t.Fatalf("Failed to set model: %s != %s", updateVehicleResponse.Model, updateVehicleRequest.Model.String)
+	}
 
 	// delete vehicle
 	var deleteVehicleResponse db.Vehicle
@@ -123,13 +160,13 @@ func TestVehicleRoundTrip(t *testing.T) {
 	if createVehicleResponse.VehicleID != deleteVehicleResponse.VehicleID {
 		t.Fatalf("Failed to set year: %d != %d", createVehicleRequest.Year, deleteVehicleResponse.Year)
 	}
-	if createVehicleResponse.Year != deleteVehicleResponse.Year {
+	if updateVehicleResponse.Year != deleteVehicleResponse.Year {
 		t.Fatalf("Failed to set year: %d != %d", createVehicleRequest.Year, deleteVehicleResponse.Year)
 	}
-	if createVehicleResponse.Make != deleteVehicleResponse.Make {
+	if updateVehicleResponse.Make != deleteVehicleResponse.Make {
 		t.Fatalf("Failed to set make: %s != %s", createVehicleRequest.Make, deleteVehicleResponse.Make)
 	}
-	if createVehicleResponse.Model != deleteVehicleResponse.Model {
+	if updateVehicleResponse.Model != deleteVehicleResponse.Model {
 		t.Fatalf("Failed to set model: %s != %s", createVehicleRequest.Model, deleteVehicleResponse.Model)
 	}
 }
@@ -163,8 +200,14 @@ func makeApiRequest(t *testing.T, method string, path string, requestBody interf
 	}
 
 	req, err := http.NewRequest(method, server.URL+path, requestBytes)
+
 	if err != nil {
 		t.Fatalf("API request: request: %v", err)
+	}
+
+	cookies := client.Jar.Cookies(req.URL)
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
 	}
 
 	response, err := client.Do(req)

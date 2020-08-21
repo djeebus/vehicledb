@@ -7,63 +7,82 @@ import (
 	"net/http"
 )
 
-func NewRouter(schema *graphql.Schema) *mux.Router {
+func NewHandler(schema *graphql.Schema) http.Handler {
 	router := mux.NewRouter()
 
 	// user routes
 	userRoute := router.Path("/v1/users/{userId}/")
 	AddMappedMethods(userRoute, map[string]http.HandlerFunc{
-		"GET": getUser,
-		"PATCH": updateUser,
+		"GET":    getUser,
+		"PATCH":  updateUser,
 		"DELETE": deleteUser,
 	})
 
 	usersRoute := router.Path("/v1/users/")
-	usersRoute.Methods("POST").HandlerFunc(createUser)
+	AddMappedMethods(usersRoute, map[string]http.HandlerFunc{
+		"POST": createUser,
+	})
 
 	// api token routes
 	tokensRoute := router.Path("/v1/tokens/")
-	tokensRoute.Methods("GET").HandlerFunc(listTokens)
-	tokensRoute.Methods("POST").HandlerFunc(createToken)
+	AddMappedMethods(tokensRoute, map[string]http.HandlerFunc{
+		"GET":  listTokens,
+		"POST": createToken,
+	})
 
 	tokenRoute := router.Path("/v1/tokens/{tokenId}")
-	tokenRoute.Methods("GET").HandlerFunc(getToken)
-	tokenRoute.Methods("PATCH").HandlerFunc(updateToken)
-	tokenRoute.Methods("DELETE").HandlerFunc(deleteToken)
+	AddMappedMethods(tokenRoute, map[string]http.HandlerFunc{
+		"GET":    getToken,
+		"PATCH":  updateToken,
+		"DELETE": deleteToken,
+	})
 
 	// sessionsRoute routes
 	sessionsRoute := router.Path("/v1/sessions/")
-	sessionsRoute.Methods("GET").HandlerFunc(validateSession)
-	sessionsRoute.Methods("POST").HandlerFunc(login)
-	sessionsRoute.Methods("DELETE").HandlerFunc(logout)
+	AddMappedMethods(sessionsRoute, map[string]http.HandlerFunc{
+		"GET":    validateSession,
+		"POST":   login,
+		"DELETE": logout,
+	})
 
 	// vehicle routes
 	vehiclesRoute := router.Path("/v1/vehicles/")
-	vehiclesRoute.Methods("GET").HandlerFunc(listVehicles)
-	vehiclesRoute.Methods("POST").HandlerFunc(createVehicle)
+	AddMappedMethods(
+		vehiclesRoute,
+		map[string]http.HandlerFunc{
+			"GET":  listVehicles,
+			"POST": RequireAuth(createVehicle),
+		},
+	)
 
 	vehicleRoute := router.Path("/v1/vehicles/{vehicleId}")
-	vehicleRoute.Methods("GET").HandlerFunc(getVehicle)
-	vehicleRoute.Methods("PATCH").HandlerFunc(updateVehicle)
-	vehicleRoute.Methods("DELETE").HandlerFunc(deleteVehicle)
+	AddMappedMethods(vehicleRoute, map[string]http.HandlerFunc{
+		"GET":    getVehicle,
+		"PATCH":  updateVehicle,
+		"DELETE": deleteVehicle,
+	})
 
 	// maintenance schedule routes
 	scheduleRoute := router.Path("/v1/vehicles/{vehicleId}/schedule/")
-	scheduleRoute.Methods("GET").HandlerFunc(listScheduledItems)
-	scheduleRoute.Methods("POST").HandlerFunc(createScheduledItem)
+	AddMappedMethods(scheduleRoute, map[string]http.HandlerFunc{
+		"GET":  listScheduledItems,
+		"POST": createScheduledItem,
+	})
 
 	scheduleItemRoute := router.Path("/v1/vehicles/{vehicleId}/schedule/{scheduleItemId}")
-	scheduleItemRoute.Methods("GET").HandlerFunc(getScheduledItem)
-	scheduleItemRoute.Methods("PATCH").HandlerFunc(updateScheduledItem)
-	scheduleItemRoute.Methods("DELETE").HandlerFunc(deleteScheduledItem)
+	AddMappedMethods(scheduleItemRoute, map[string]http.HandlerFunc{
+		"GET":    getScheduledItem,
+		"PATCH":  updateScheduledItem,
+		"DELETE": deleteScheduledItem,
+	})
 
 	// ical or rss routes
 	router.Path("/v1/vehicles/{vehicleId}/schedule.rss").Methods("GET").HandlerFunc(generateRssFeed)
 
 	// graphql route
 	graphQlHandler := handler.New(&handler.Config{
-		Schema: schema,
-		Pretty: true,
+		Schema:   schema,
+		Pretty:   true,
 		GraphiQL: true,
 	})
 	router.Path("/v1/graphql").Handler(graphQlHandler)

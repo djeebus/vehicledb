@@ -15,7 +15,7 @@ CREATE TABLE users (
 
 type User struct {
 	EmailAddress string `json:"email_address"`
-	UserId       int64  `json:"user_id"`
+	UserId       RowID  `json:"user_id"`
 }
 
 func hashPassword(password string) string {
@@ -51,12 +51,12 @@ func CreateUser(emailAddress string, password string) (*User, error) {
 
 	user := User{
 		EmailAddress: emailAddress,
-		UserId:       lastInserted,
+		UserId:       RowID(lastInserted),
 	}
 	return &user, nil
 }
 
-func GetUser(userId int64) (*User, error) {
+func GetUser(userId RowID) (*User, error) {
 	query := `SELECT email_address FROM users WHERE id = ?`
 	stmt, err := sqlDb.Prepare(query)
 	if err != nil {
@@ -87,7 +87,7 @@ func GetUser(userId int64) (*User, error) {
 	return nil, &UserNotFoundError{UserID: userId}
 }
 
-func UpdateUser(userId int64, emailAddress string) (*User, error) {
+func UpdateUser(userId RowID, emailAddress string) (*User, error) {
 	// nothing to update
 	if emailAddress == "" {
 		return GetUser(userId)
@@ -112,7 +112,7 @@ func UpdateUser(userId int64, emailAddress string) (*User, error) {
 	return &user, nil
 }
 
-func DeleteUser(userId int64) error {
+func DeleteUser(userId RowID) error {
 	query := `DELETE FROM users WHERE id = ?`
 	stmt, err := sqlDb.Prepare(query)
 	if err != nil {

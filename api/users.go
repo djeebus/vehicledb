@@ -1,15 +1,16 @@
 package api
 
 import (
+	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
-	"strconv"
+	"vehicledb/auth"
 	"vehicledb/db"
 )
 
 type CreateUserRequest struct {
 	EmailAddress string `json:"email_address"`
-	Password string `json:"password"`
+	Password     string `json:"password"`
 }
 
 var createUserSchema = `{
@@ -36,14 +37,24 @@ func createUser(w http.ResponseWriter, request *http.Request) {
 	user, err := db.CreateUser(createUserRequest.EmailAddress, createUserRequest.Password)
 	if err != nil {
 		renderError(w, err)
-	} else {
-		renderJson(w, user)
+		return
 	}
+
+	token, err := auth.CreateToken(user)
+	if err != nil {
+		renderError(w, err)
+		return
+	}
+
+	header := w.Header()
+	header.Add("Set-Cookie", fmt.Sprintf("auth=%s", token))
+
+	renderJson(w, user)
 }
 
 func getUser(writer http.ResponseWriter, request *http.Request) {
 	vars := mux.Vars(request)
-	userId, err := strconv.ParseInt(vars["userId"], 10, 64)
+	userId, err := db.ParseRowID(vars["userId"])
 	if err != nil {
 		renderError(writer, err)
 		return
@@ -79,7 +90,7 @@ func updateUser(w http.ResponseWriter, request *http.Request) {
 	}
 
 	vars := mux.Vars(request)
-	userId, err := strconv.ParseInt(vars["userId"], 10, 64)
+	userId, err := db.ParseRowID(vars["userId"])
 	if err != nil {
 		renderError(w, err)
 		return
@@ -96,7 +107,7 @@ func updateUser(w http.ResponseWriter, request *http.Request) {
 
 func deleteUser(w http.ResponseWriter, request *http.Request) {
 	vars := mux.Vars(request)
-	userId, err := strconv.ParseInt(vars["userId"], 10, 64)
+	userId, err := db.ParseRowID(vars["userId"])
 	if err != nil {
 		renderError(w, err)
 		return

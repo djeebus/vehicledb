@@ -13,13 +13,13 @@ func RunApiServer() {
 	if err != nil {
 		log.Fatal("Failed to generate schema", err)
 	}
-	router := api.NewRouter(schema)
+	handler := api.NewHandler(schema)
 
 	addr := "127.0.0.1:8000"
 
 	srv := &http.Server{
-		Handler: router,
-		Addr: addr,
+		Handler: handler,
+		Addr:    addr,
 
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout: 15 * time.Second,
