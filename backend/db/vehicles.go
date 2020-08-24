@@ -10,25 +10,29 @@ CREATE TABLE vehicles (
 	"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 	"year" INTEGER NOT NULL,
 	"make" STRING NOT NULL,
-	"model" STRING NOT NULL
+	"model" STRING NOT NULL,
+	"userId" INTEGER NOT NULL,
+	
+	FOREIGN KEY (userId) REFERENCES users (id)
 )`
 
 type Vehicle struct {
 	VehicleID RowID
+	UserID    RowID
 
 	Year  Year
 	Make  string
 	Model string
 }
 
-func CreateVehicle(year Year, make, model string) (*Vehicle, error) {
-	query := `INSERT INTO vehicles (year, make, model) VALUES (?, ?, ?)`
+func CreateVehicle(userID RowID, year Year, make, model string) (*Vehicle, error) {
+	query := `INSERT INTO vehicles (userId, year, make, model) VALUES (?, ?, ?, ?)`
 	stmt, err := sqlDb.Prepare(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prep vehicle statement: %w", err)
 	}
 
-	result, err := stmt.Exec(year, make, model)
+	result, err := stmt.Exec(userID, year, make, model)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exec create vehicle statement: %w", err)
 	}
@@ -42,6 +46,7 @@ func CreateVehicle(year Year, make, model string) (*Vehicle, error) {
 
 	vehicle := Vehicle{
 		VehicleID: RowID(lastInserted),
+		UserID:    userID,
 		Year:      year,
 		Make:      make,
 		Model:     model,
@@ -49,8 +54,47 @@ func CreateVehicle(year Year, make, model string) (*Vehicle, error) {
 	return &vehicle, nil
 }
 
+func ListVehicles(userID RowID) ([]*Vehicle, error) {
+	query := `SELECT id, year, make, model FROM vehicles WHERE userId = ?`
+	stmt, err := sqlDb.Prepare(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare list vehicles query: %v", err)
+	}
+
+	rows, err := stmt.Query(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute list vehicles query: %v", err)
+	}
+	defer rows.Close()
+
+	var vehicleID RowID
+	var year uint16
+	var vehicleMake, model string
+
+	vehicles := make([]*Vehicle, 0)
+
+	for rows.Next() {
+		err = rows.Scan(&vehicleID, &year, &vehicleMake, &model)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan row: %v", err)
+		}
+
+		vehicle := Vehicle{
+			VehicleID: vehicleID,
+			UserID:    RowID(userID),
+			Year:      Year(year),
+			Make:      vehicleMake,
+			Model:     model,
+		}
+
+		vehicles = append(vehicles, &vehicle)
+	}
+
+	return vehicles, nil
+}
+
 func GetVehicle(vehicleID RowID) (*Vehicle, error) {
-	query := `SELECT year, make, model FROM vehicles WHERE id = ?`
+	query := `SELECT userId, year, make, model FROM vehicles WHERE id = ?`
 	stmt, err := sqlDb.Prepare(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare get vehicle query: %v", err)
@@ -62,17 +106,19 @@ func GetVehicle(vehicleID RowID) (*Vehicle, error) {
 	}
 	defer rows.Close()
 
+	var userId uint64
 	var year uint16
 	var vehicleMake, model string
 
 	for rows.Next() {
-		err = rows.Scan(&year, &vehicleMake, &model)
+		err = rows.Scan(&userId, &year, &vehicleMake, &model)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %v", err)
 		}
 
 		vehicle := Vehicle{
 			VehicleID: vehicleID,
+			UserID:    RowID(userId),
 			Year:      Year(year),
 			Make:      vehicleMake,
 			Model:     model,

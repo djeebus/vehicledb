@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/handler"
@@ -11,46 +12,50 @@ func NewHandler(schema *graphql.Schema) http.Handler {
 	router := mux.NewRouter()
 
 	// user routes
-	userRoute := router.Path("/v1/users/{userId}/")
-	AddMappedMethods(userRoute, map[string]http.HandlerFunc{
-		"GET":    getUser,
-		"PATCH":  updateUser,
-		"DELETE": deleteUser,
-	})
+	AddMappedMethods(
+		router.Path("/v1/users/me"),
+		map[string]http.HandlerFunc{
+			"GET":    RequireAuth(getUser),
+			"PATCH":  RequireAuth(updateUser),
+			"DELETE": RequireAuth(deleteUser),
+		})
 
-	usersRoute := router.Path("/v1/users/")
-	AddMappedMethods(usersRoute, map[string]http.HandlerFunc{
-		"POST": createUser,
-	})
+	AddMappedMethods(
+		router.Path("/v1/users/"),
+		map[string]http.HandlerFunc{
+			"POST": createUser,
+		})
 
 	// api token routes
-	tokensRoute := router.Path("/v1/tokens/")
-	AddMappedMethods(tokensRoute, map[string]http.HandlerFunc{
-		"GET":  listTokens,
-		"POST": createToken,
-	})
+	AddMappedMethods(
+		router.Path("/v1/tokens/"),
+		map[string]http.HandlerFunc{
+			"GET":  listTokens,
+			"POST": createToken,
+		})
 
-	tokenRoute := router.Path("/v1/tokens/{tokenId}")
-	AddMappedMethods(tokenRoute, map[string]http.HandlerFunc{
-		"GET":    getToken,
-		"PATCH":  updateToken,
-		"DELETE": deleteToken,
-	})
+	AddMappedMethods(
+		router.Path("/v1/tokens/{tokenId}"),
+		map[string]http.HandlerFunc{
+			"GET":    getToken,
+			"PATCH":  updateToken,
+			"DELETE": deleteToken,
+		})
 
 	// sessionsRoute routes
-	sessionsRoute := router.Path("/v1/sessions/")
-	AddMappedMethods(sessionsRoute, map[string]http.HandlerFunc{
-		"GET":    validateSession,
-		"POST":   login,
-		"DELETE": logout,
-	})
+	AddMappedMethods(
+		router.Path("/v1/session"),
+		map[string]http.HandlerFunc{
+			"GET":    validateSession,
+			"POST":   login,
+			"DELETE": logout,
+		})
 
 	// vehicle routes
-	vehiclesRoute := router.Path("/v1/vehicles/")
 	AddMappedMethods(
-		vehiclesRoute,
+		router.Path("/v1/vehicles/"),
 		map[string]http.HandlerFunc{
-			"GET":  listVehicles,
+			"GET":  RequireAuth(listVehicles),
 			"POST": RequireAuth(createVehicle),
 		},
 	)
@@ -87,5 +92,12 @@ func NewHandler(schema *graphql.Schema) http.Handler {
 	})
 	router.Path("/v1/graphql").Handler(graphQlHandler)
 
-	return router
+	corsWrapper := handlers.CORS(
+		handlers.AllowedHeaders([]string{"content-type"}),
+		handlers.AllowedOrigins([]string{"*"}),
+		handlers.AllowCredentials(),
+	)
+	corsWrapped := corsWrapper(router)
+
+	return corsWrapped
 }

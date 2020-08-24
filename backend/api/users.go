@@ -1,8 +1,6 @@
 package api
 
 import (
-	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
 	"vehicledb/auth"
 	"vehicledb/db"
@@ -46,21 +44,18 @@ func createUser(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	header := w.Header()
-	header.Add("Set-Cookie", fmt.Sprintf("auth=%s", token))
+	cookie := http.Cookie{
+		Path: "/",
+		Name: "auth",
+		Value: token,
+	}
+	http.SetCookie(w, &cookie)
 
 	renderJson(w, user)
 }
 
-func getUser(writer http.ResponseWriter, request *http.Request) {
-	vars := mux.Vars(request)
-	userId, err := db.ParseRowID(vars["userId"])
-	if err != nil {
-		renderError(writer, err)
-		return
-	}
-
-	user, err := db.GetUser(userId)
+func getUser(claimsUser *auth.ClaimsUser, writer http.ResponseWriter, request *http.Request) {
+	user, err := db.GetUser(claimsUser.UserID)
 	if err != nil {
 		renderError(writer, err)
 		return
@@ -81,7 +76,7 @@ var updateUserSchema = `{
 	}
 }`
 
-func updateUser(w http.ResponseWriter, request *http.Request) {
+func updateUser(claimsUser *auth.ClaimsUser, w http.ResponseWriter, request *http.Request) {
 	var updateUserRequest UpdateUserRequest
 	err := validateSchemaBuildModel(request, updateUserSchema, &updateUserRequest)
 	if err != nil {
@@ -89,14 +84,7 @@ func updateUser(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	vars := mux.Vars(request)
-	userId, err := db.ParseRowID(vars["userId"])
-	if err != nil {
-		renderError(w, err)
-		return
-	}
-
-	user, err := db.UpdateUser(userId, updateUserRequest.EmailAddress)
+	user, err := db.UpdateUser(claimsUser.UserID, updateUserRequest.EmailAddress)
 	if err != nil {
 		renderError(w, err)
 		return
@@ -105,21 +93,14 @@ func updateUser(w http.ResponseWriter, request *http.Request) {
 	renderJson(w, user)
 }
 
-func deleteUser(w http.ResponseWriter, request *http.Request) {
-	vars := mux.Vars(request)
-	userId, err := db.ParseRowID(vars["userId"])
+func deleteUser(claimsUser *auth.ClaimsUser, w http.ResponseWriter, request *http.Request) {
+	user, err := db.GetUser(claimsUser.UserID)
 	if err != nil {
 		renderError(w, err)
 		return
 	}
 
-	user, err := db.GetUser(userId)
-	if err != nil {
-		renderError(w, err)
-		return
-	}
-
-	err = db.DeleteUser(userId)
+	err = db.DeleteUser(claimsUser.UserID)
 	if err != nil {
 		renderError(w, err)
 		return

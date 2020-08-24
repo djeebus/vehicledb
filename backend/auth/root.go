@@ -14,7 +14,7 @@ func CreateToken(user *db.User) (string, error) {
 		EmailAddress: user.EmailAddress,
 		UserID:       user.UserId,
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: 15000,
+			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
 			Issuer:    "vehicledb",
 		},
 	}

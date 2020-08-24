@@ -3,11 +3,18 @@ package api
 import (
 	"github.com/gorilla/mux"
 	"net/http"
+	"vehicledb/auth"
 	"vehicledb/db"
 )
 
-func listVehicles(writer http.ResponseWriter, request *http.Request) {
+func listVehicles(user *auth.ClaimsUser, writer http.ResponseWriter, request *http.Request) {
+	vehicles, err := db.ListVehicles(user.UserID)
+	if err != nil {
+		renderJson(writer, err)
+		return
+	}
 
+	renderJson(writer, vehicles)
 }
 
 type CreateVehicleRequest struct {
@@ -31,7 +38,7 @@ var createVehicleSchema = `{
   ]
 }`
 
-func createVehicle(writer http.ResponseWriter, request *http.Request) {
+func createVehicle(user *auth.ClaimsUser, writer http.ResponseWriter, request *http.Request) {
 	var createVehicleRequest CreateVehicleRequest
 	err := validateSchemaBuildModel(request, createVehicleSchema, &createVehicleRequest)
 	if err != nil {
@@ -39,11 +46,11 @@ func createVehicle(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	user, err := db.CreateVehicle(createVehicleRequest.Year, createVehicleRequest.Make, createVehicleRequest.Model)
+	vehicle, err := db.CreateVehicle(user.UserID, createVehicleRequest.Year, createVehicleRequest.Make, createVehicleRequest.Model)
 	if err != nil {
 		renderError(writer, err)
 	} else {
-		renderJson(writer, user)
+		renderJson(writer, vehicle)
 	}
 }
 
