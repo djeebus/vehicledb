@@ -11,6 +11,9 @@ module.exports = function (_env, argv) {
 
     return {
         devtool: isDevelopment && "cheap-module-source-map",
+        devServer: {
+            historyApiFallback: true,
+        },
         entry: "./src/index.js",
         output: {
             path: path.resolve(__dirname, "dist"),

@@ -5,10 +5,13 @@ import (
 	"net/http"
 	"time"
 	"vehicledb/api"
+	"vehicledb/db"
 	"vehicledb/graph"
 )
 
 func RunApiServer() {
+	db.OpenDatabase("db.sqlite")
+
 	schema, err := graph.GenerateSchema()
 	if err != nil {
 		log.Fatal("Failed to generate schema", err)

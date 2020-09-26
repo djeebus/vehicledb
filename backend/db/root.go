@@ -14,6 +14,10 @@ import (
 var sqlDb *sql.DB
 type RowID int64
 
+func (r RowID) String() string {
+	return strconv.FormatInt(int64(r), 10)
+}
+
 func ParseRowID(rowID string) (RowID, error) {
 	rowId, err := strconv.ParseInt(rowID, 10, 64)
 	if err != nil {

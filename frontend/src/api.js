@@ -1,13 +1,41 @@
-export async function getVehicles() {
+const URL = 'http://localhost:8000'
+
+
+export async function isAuthenticated() {
     const response = await fetch(
-        'http://localhost:8000/v1/vehicles/',
+        URL + '/v1/session'
+    )
+}
+
+export async function createUser(emailAddress, password) {
+    const response = await fetch(
+        '/v1/users/',
         {
-            method: 'GET',
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                email_address: emailAddress,
+                password,
+            }),
         },
     )
 
     const body = await response.json()
-    console.log("3", body)
+    if (response.status >= 400) {
+        throw body
+    }
 
-    return []
+    return body
+}
+
+export async function getVehicles() {
+    const response = await fetch(
+        URL + '/v1/vehicles/',
+        {method: 'GET'},
+    )
+
+    const body = await response.json()
+    return body
 }

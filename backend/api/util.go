@@ -34,6 +34,10 @@ func validateSchemaBuildModel(request *http.Request, schemaText string, model in
 		return err
 	}
 
+	if len(buf) == 0 {
+		return fmt.Errorf("request body not received")
+	}
+
 	document := gojsonschema.NewBytesLoader(buf)
 	result, err := schema.Validate(document)
 	if err != nil {
@@ -97,7 +101,7 @@ func renderError(writer http.ResponseWriter, err error) {
 
 	default:
 		fmt.Println(err)
-		writer.WriteHeader(500) // todo: use 400 for jsonschema errors
+		writer.WriteHeader(500)
 		renderJson(writer, map[string]interface{}{"code": "server_error"})
 	}
 }
