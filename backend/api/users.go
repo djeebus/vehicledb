@@ -38,6 +38,12 @@ func createUser(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	setAuthCookie(w, user)
+
+	renderJson(w, user)
+}
+
+func setAuthCookie(w http.ResponseWriter, user *db.User) {
 	token, err := auth.CreateToken(user)
 	if err != nil {
 		renderError(w, err)
@@ -46,12 +52,19 @@ func createUser(w http.ResponseWriter, request *http.Request) {
 
 	cookie := http.Cookie{
 		Path: "/",
-		Name: "auth",
+		Name: authCookieName,
 		Value: token,
 	}
 	http.SetCookie(w, &cookie)
+}
 
-	renderJson(w, user)
+func removeAuthCookie(w http.ResponseWriter) {
+	cookie := http.Cookie{
+		Path: "/",
+		Name: authCookieName,
+		Value: "",
+	}
+	http.SetCookie(w, &cookie)
 }
 
 func getUser(claimsUser *auth.ClaimsUser, writer http.ResponseWriter, request *http.Request) {

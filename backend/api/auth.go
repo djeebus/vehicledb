@@ -10,7 +10,7 @@ type UserHandlerFunc func(user *auth.ClaimsUser, w http.ResponseWriter, r *http.
 
 func RequireAuth(f UserHandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("auth")
+		cookie, err := r.Cookie(authCookieName)
 		if err != nil {
 			w.WriteHeader(401)
 			renderJson(w, "must pass cookie")

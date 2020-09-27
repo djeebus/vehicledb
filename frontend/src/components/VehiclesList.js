@@ -1,19 +1,40 @@
 import React, { useState, useEffect } from 'react'
-import { getVehicles } from "../api";
+import { getVehicles, deleteVehicle } from "../api";
+import CreateVehicle from "./CreateVehicle";
 
-export default function() {
+export default function({history}) {
     const [vehicles, setVehicles] = useState([])
-    console.log("1", vehicles)
 
     useEffect(() => {
         async function loadVehicles() {
-            console.log("3")
             const cars = await getVehicles()
-            console.log("2", cars)
             setVehicles(cars)
         }
         loadVehicles()
     }, [])
 
-    return <div>{ vehicles.map(v => v) }</div>
+    const onDelete = vehicle => {
+        deleteVehicle(vehicle.vehicle_id)
+    }
+
+    function renderVehicle(vehicle) {
+        return (
+            <li key={vehicle.vehicle_id}>
+                <a href={`/vehicles/${vehicle.vehicle_id}`}>
+                    {vehicle.year} {vehicle.make} {vehicle.model}
+                </a>
+
+                (<a href="" onClick={onDelete(vehicle)}>Delete me</a>)
+            </li>
+        )
+    }
+
+    return (
+        <div>
+            <ul>
+                { vehicles.map(renderVehicle) }
+            </ul>
+            <CreateVehicle history={history} />
+        </div>
+    )
 }

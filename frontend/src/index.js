@@ -9,21 +9,44 @@ import Logout from "./components/Logout"
 import Register from "./components/Register";
 import Home from "./components/Home";
 
-function ProtectedRoute({ children, ...rest }) {
+const authService = new AuthService()
+
+function ProtectedRoute({ component, path, ...rest }) {
+    const isAuthenticated = authService.isAuthenticated()
+
     return (
         <Route
             {...rest}
+            component={component}
             render={({location}) =>
-                authService.isAuthenticated()
+                isAuthenticated
                     ? children
                     : <Redirect to={{pathname: "/login", state: {from: location}}}/>
             } />
     )
 }
 
-const authService = new AuthService()
+const App = ({history}) => {
+    const [loading, setLoading] = useState(true)
+    const [authenticated, setAuthenticated] = useState(null)
 
-const App = () => {
+    useEffect(() => {
+        if (loading) {
+            authService.checkSession()
+                .then(() => setLoading(false))
+                .then(() => setAuthenticated(authService.isAuthenticated()))
+        }
+    }, [loading, authenticated])
+
+    if (loading) {
+        return <div>Please wait ... </div>
+    }
+
+    const logout = async () => {
+        await authService.logout()
+        setAuthenticated(false)
+    }
+
     return (
         <AuthContext.Provider value={authService}>
             <Router>
@@ -31,10 +54,10 @@ const App = () => {
                     <nav>
                         <ul>
                             <li><Link to="/">Home</Link></li>
-                            {authService.isAuthenticated() ? <>
+                            {authenticated ? <>
                                 <li><Link to="/vehicles">Vehicles</Link></li>
                                 <li><Link to="/calendar">Calendar</Link></li>
-                                <li><Link to="/logout">Log out</Link></li>
+                                <li><a href="" onClick={logout} >Log out</a></li>
                             </> : <>
                                 <li><Link to="/register">Register</Link></li>
                                 <li><Link to="/login">Login</Link></li>
@@ -43,25 +66,13 @@ const App = () => {
                     </nav>
 
                     <Switch>
-                        <ProtectedRoute path="/vehicles">
-                            <VehiclesList />
-                        </ProtectedRoute>
-                        <ProtectedRoute path="/calendar">
-                            <Calendar />
-                        </ProtectedRoute>
-                        <ProtectedRoute path="/logout">
-                            <Logout />
-                        </ProtectedRoute>
+                        <ProtectedRoute path="/vehicles" component={VehiclesList} />
+                        <ProtectedRoute path="/calendar" component={Calendar} />
+                        <ProtectedRoute path="/logout" component={Logout} />
 
-                        <Route path="/register">
-                            <Register />
-                        </Route>
-                        <Route path="/login">
-                            <Login />
-                        </Route>
-                        <Route>
-                            <Home />
-                        </Route>
+                        <Route path="/register" component={Register} />
+                        <Route path="/login" component={Login} />
+                        <Route component={Home} />
                     </Switch>
                 </div>
             </Router>

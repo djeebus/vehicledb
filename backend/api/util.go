@@ -86,14 +86,18 @@ func renderError(writer http.ResponseWriter, err error) {
 		errors := make([]interface{}, 0)
 
 		for _, result := range e.Result.Errors() {
-			switch r := result.(type) {
-			case *gojsonschema.RequiredError:
-				errors = append(errors, map[string]interface{}{"code": "missing_field", "field": r.Details()["property"]})
-			default:
-				errors = append(errors, map[string]interface{}{"code": r.Type()})
+			errJson := map[string]interface{}{
+				"code": result.Type(),
 			}
 
+			details := result.Details()
+			for k, v := range details {
+				errJson[k] = v
+			}
+
+			errors = append(errors, errJson)
 		}
+
 		renderJson(writer, map[string]interface{}{
 			"code":   "invalid_request",
 			"errors": errors,

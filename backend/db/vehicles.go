@@ -17,12 +17,12 @@ CREATE TABLE vehicles (
 )`
 
 type Vehicle struct {
-	VehicleID RowID
-	UserID    RowID
+	VehicleID RowID `json:"vehicle_id"`
+	UserID    RowID `json:"user_id"`
 
-	Year  Year
-	Make  string
-	Model string
+	Year  Year   `json:"year"`
+	Make  string `json:"make"`
+	Model string `json:"model"`
 }
 
 func CreateVehicle(userID RowID, year Year, make, model string) (*Vehicle, error) {

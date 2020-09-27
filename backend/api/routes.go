@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-func NewHandler(schema *graphql.Schema) http.Handler {
+func NewHandler(schema *graphql.Schema, allowedOrigins []string) http.Handler {
 	router := mux.NewRouter()
 
 	// user routes
@@ -92,9 +92,11 @@ func NewHandler(schema *graphql.Schema) http.Handler {
 	})
 	router.Path("/v1/graphql").Handler(graphQlHandler)
 
+	// cors
 	corsWrapper := handlers.CORS(
 		handlers.AllowedHeaders([]string{"content-type"}),
-		handlers.AllowedOrigins([]string{"*"}),
+		handlers.AllowedOrigins(allowedOrigins),
+		handlers.AllowedMethods([]string{"GET", "POST", "PATCH", "PUT", "DELETE"}),
 		handlers.AllowCredentials(),
 	)
 	corsWrapped := corsWrapper(router)
